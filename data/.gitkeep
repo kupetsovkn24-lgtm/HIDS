@@ -1,0 +1,6 @@
+# This directory stores runtime databases (anomalies.db, baseline.db) and GeoLite2.
+# These files are excluded from version control (.gitignore).
+# After cloning:
+#   1. Run: python launcher/baseline.py   (as Administrator) to generate baseline.db
+#   2. The anomalies.db is created automatically on first scan.
+#   3. Download GeoLite2-Country.mmdb from MaxMind and place it here (optional).

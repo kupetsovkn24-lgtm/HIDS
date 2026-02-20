@@ -1,0 +1,70 @@
+# =============================================================================
+# HIDS Project — .gitignore
+# =============================================================================
+
+# --- Python bytecode ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+technical.md.resolved
+# --- Virtual environment ---
+.venv/
+venv/
+env/
+ENV/
+
+# --- Databases (generated locally, may contain sensitive system data) ---
+data/anomalies.db
+data/baseline.db
+data/baseline.db.bak
+
+# GeoLite2 DB: large binary, download separately from MaxMind
+data/GeoLite2-Country.mmdb
+
+# --- All log files ---
+logs/
+data/logs/
+*.log
+
+# --- Config files with local paths / personal data ---
+# Use config/config.example.json as a template
+config/config.json
+config/config_gui.json
+
+# --- PyInstaller build artifacts ---
+build/
+dist/
+*.spec
+*.exe
+
+# --- IDE / Editor ---
+.vscode/
+.idea/
+*.suo
+*.user
+
+# --- OS junk ---
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# --- Agent / AI assistant temp files ---
+*.resolved
+
+# --- Misc temp files ---
+*.bak
+*.tmp
+*.swp
+
+# --- Pytest / coverage ---
+.pytest_cache/
+.coverage
+htmlcov/
+
+# --- Secrets (just in case) ---
+*.env
+.env
+secrets.json
