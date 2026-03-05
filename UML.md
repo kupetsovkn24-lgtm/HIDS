@@ -1,99 +1,208 @@
 ```mermaid
 classDiagram
-    class Agent {
-      +agentId: String
-      +hostname: String
-      +version: String
-      +status: String
+    class AgentController {
+      -sensors: BaseSensor[]
+      +run_scan_cycle(): SecurityEvent[]
+      +send_results(events: SecurityEvent[]): bool
+    }
+
+    class EventSender {
+      -server_url: str
+      -agent_id: str
+      +send_events(events: dict[]): bool
+      +send_heartbeat(sensors: str[], uptime: float): bool
+    }
+
+    class EventFactory {
+      +set_context(hostname: str, agent_version: str): void
+      +create_process_event(data: dict): SecurityEvent
+      +create_correlated_event(source: SecurityEvent[], description: str, mitre: str): SecurityEvent
+    }
+
+    class BaseSensor {
+      <<abstract>>
+      -baseline: BaselineManager
+      +sensor_name: str
+      +scan(): dict[]
+    }
+
+    class ProcessSensor {
+      +scan(): dict[]
+    }
+
+    class NetworkSensor {
+      +scan(): dict[]
+    }
+
+    class RegistrySensor {
+      +scan(): dict[]
+    }
+
+    class FileSensor {
+      +scan(): dict[]
+    }
+
+    class TaskSensor {
+      +scan(): dict[]
     }
 
     class SecurityEvent {
-      +eventId: String
-      +timestamp: DateTime
-      +category: String
-      +source: String
-      +details: Map
-    }
-
-    class EventCollector {
-      +collectorId: String
-      +ingestBatch(events)
-      +normalize(event)
-    }
-
-    class DetectionRule {
-      +ruleId: String
-      +name: String
-      +condition: String
-      +severityWeight: Float
-      +mitreTechnique: String
-      +enabled: Boolean
-    }
-
-    class RuleEngine {
-      +evaluate(event): DetectionSignal*
-      +matchedRulesCount: Int
-    }
-
-    class AnomalyDetector {
-      +correlate(signals): Anomaly*
-      +identifyAnomaly(signal): Anomaly
-    }
-
-    class Anomaly {
-      +anomalyId: String
-      +type: String
-      +description: String
-      +confidence: Float
-      +status: String
-      +firstSeenAt: DateTime
-    }
-
-    class RiskAssessor {
-      +assess(anomaly): RiskScore
+      +event_id: str
+      +category: EventCategory
+      +details: dict
+      +risk_score: RiskScore
     }
 
     class RiskScore {
-      +impact: Float
-      +confidence: Float
-      +urgency: Float
-      +composite: Float
-      +priorityTier: String
+      +impact: float
+      +confidence: float
+      +urgency: float
+      +composite(): float
+      +tier(): str
+    }
+
+    class EventProcessor {
+      -correlation: CorrelationEngine
+      -risk: RiskEngine
+      -alerts: AlertManager
+      +process_batch(events: SecurityEvent[]): ProcessingResult
+    }
+
+    class ProcessingResult {
+      +total_received: int
+      +correlated_generated: int
+      +alerts_fired: int
+      +highest_tier: str
+    }
+
+    class CorrelationEngine {
+      -rules: CorrelationRule[]
+      +register_rule(rule: CorrelationRule): void
+      +correlate(events: SecurityEvent[]): SecurityEvent[]
+    }
+
+    class CorrelationRule {
+      <<interface>>
+      +evaluate(events: SecurityEvent[]): SecurityEvent[]
+      +rule_name: str
+      +mitre_technique: str
+    }
+
+    class SuspiciousParentRule {
+      +evaluate(events: SecurityEvent[]): SecurityEvent[]
+    }
+
+    class LOLBASRule {
+      +evaluate(events: SecurityEvent[]): SecurityEvent[]
+    }
+
+    class FirstSeenRule {
+      +evaluate(events: SecurityEvent[]): SecurityEvent[]
+    }
+
+    class RiskEngine {
+      -strategies: RiskStrategy[]
+      +register_strategy(strategy: RiskStrategy): void
+      +evaluate(event: SecurityEvent): RiskScore
+    }
+
+    class RiskStrategy {
+      <<interface>>
+      +calculate(event: SecurityEvent): RiskScore
+      +name: str
+    }
+
+    class BaselineRiskStrategy {
+      +calculate(event: SecurityEvent): RiskScore
+    }
+
+    class LOLBASRiskStrategy {
+      +calculate(event: SecurityEvent): RiskScore
+    }
+
+    class ProcessLineageRiskStrategy {
+      +calculate(event: SecurityEvent): RiskScore
+    }
+
+    class NetworkAnomalyRiskStrategy {
+      +calculate(event: SecurityEvent): RiskScore
+    }
+
+    class TemporalRiskStrategy {
+      +calculate(event: SecurityEvent): RiskScore
     }
 
     class AlertManager {
-      +thresholdTier: String
-      +generateAlert(anomaly, score): Alert
-      +dispatch(alert)
+      -observers: AlertObserver[]
+      -threshold_tier: str
+      +attach(observer: AlertObserver): void
+      +process_event(event: SecurityEvent): int
     }
 
-    class Alert {
-      +alertId: String
-      +createdAt: DateTime
-      +tier: String
-      +message: String
-      +channel: String
-      +status: String
+    class AlertObserver {
+      <<interface>>
+      +notify(event: SecurityEvent): void
+      +observer_name: str
     }
 
-    class SecurityRepository {
-      +saveEvent(event)
-      +saveAnomaly(anomaly)
-      +saveAlert(alert)
+    class LogAlertObserver {
+      +notify(event: SecurityEvent): void
     }
 
-    Agent "1" --> "0..*" SecurityEvent : emits
-    EventCollector "1" o-- "0..*" SecurityEvent : receives
-    RuleEngine "1" o-- "1..*" DetectionRule : uses
-    RuleEngine --> AnomalyDetector : detection signals
-    SecurityEvent "1..*" --> "0..*" Anomaly : evidence for
-    AnomalyDetector --> Anomaly : identifies
-    Anomaly --> RiskAssessor : submitted for scoring
-    RiskAssessor --> RiskScore : produces
-    RiskScore --> AlertManager : threshold check
-    AlertManager --> Alert : generates
-    Alert --> Anomaly : references
-    EventCollector --> SecurityRepository : persists events
-    AnomalyDetector --> SecurityRepository : persists anomalies
-    AlertManager --> SecurityRepository : persists alerts
+    class DashboardAlertObserver {
+      -db: DatabaseManager
+      +notify(event: SecurityEvent): void
+    }
+
+    class UptimeKumaObserver {
+      -push_url: str
+      +notify(event: SecurityEvent): void
+    }
+
+    class DatabaseManager {
+      +add_event(event: SecurityEvent): void
+      +add_alert(event: SecurityEvent): void
+      +get_events(days: int): dict[]
+    }
+
+    BaseSensor <|-- ProcessSensor
+    BaseSensor <|-- NetworkSensor
+    BaseSensor <|-- RegistrySensor
+    BaseSensor <|-- FileSensor
+    BaseSensor <|-- TaskSensor
+
+    CorrelationRule <|.. SuspiciousParentRule
+    CorrelationRule <|.. LOLBASRule
+    CorrelationRule <|.. FirstSeenRule
+
+    RiskStrategy <|.. BaselineRiskStrategy
+    RiskStrategy <|.. LOLBASRiskStrategy
+    RiskStrategy <|.. ProcessLineageRiskStrategy
+    RiskStrategy <|.. NetworkAnomalyRiskStrategy
+    RiskStrategy <|.. TemporalRiskStrategy
+
+    AlertObserver <|.. LogAlertObserver
+    AlertObserver <|.. DashboardAlertObserver
+    AlertObserver <|.. UptimeKumaObserver
+
+    AgentController o-- BaseSensor : collects from
+    AgentController --> EventFactory : builds events
+    AgentController --> EventSender : sends batch
+    EventFactory --> SecurityEvent : creates
+    EventSender ..> EventProcessor : POST /api/events
+
+    EventProcessor --> CorrelationEngine : orchestrates
+    EventProcessor --> RiskEngine : orchestrates
+    EventProcessor --> AlertManager : orchestrates
+    EventProcessor --> DatabaseManager : persists
+    EventProcessor --> ProcessingResult : returns
+
+    CorrelationEngine o-- CorrelationRule : strategy set
+    RiskEngine o-- RiskStrategy : strategy set
+    AlertManager o-- AlertObserver : subscribers
+
+    SecurityEvent *-- RiskScore : composed of
+    DatabaseManager --> SecurityEvent : stores
+    DashboardAlertObserver --> DatabaseManager : writes alerts
+
 ```
