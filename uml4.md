@@ -1,53 +1,14 @@
-# Рис. 2.1 — MVC-архітектура системи HIDS
+# Рис. 2.1 — UML-діаграма класів предметної області HIDS
 
 ```mermaid
-%%{init: {"theme":"base","flowchart":{"nodeSpacing":22,"rankSpacing":22},"class":{"hideEmptyMembersBox":true}}}%%
+%%{init: {"theme":"base","flowchart":{"nodeSpacing":20,"rankSpacing":20},"class":{"hideEmptyMembersBox":true}}}%%
 classDiagram
 direction LR
-
-class ViewLayer { <<MVCLayer>> }
-class ControllerLayer { <<MVCLayer>> }
-class ModelLayer { <<MVCLayer>> }
-
-class DashboardPages {
-    +overview_page()
-    +alerts_page()
-    +events_page()
-    +agents_page()
-}
-
-class DashboardAPIClient {
-    +get_stats(days) Dict
-    +get_events(days, tier) List
-    +get_alerts(limit, acknowledged) List
-}
-
-class AgentController {
-    -_config: AgentConfig
-    -_baseline: BaselineManager
-    -_sensors: List~BaseSensor~
-    +run_scan_cycle() List~SecurityEvent~
-    +send_results(events) bool
-    +send_heartbeat() bool
-}
-
-class FastAPIApp {
-    +receive_events() BatchResponse
-    +get_events() List
-    +get_alerts() List
-}
-
-class EventProcessor {
-    -_correlation: CorrelationEngine
-    -_risk: RiskEngine
-    -_alerts: AlertManager
-    -_db: DatabaseManager
-    +process_batch(events, agent_id) ProcessingResult
-}
 
 class SecurityEvent {
     +event_id: str
     +timestamp: datetime
+    +source_sensor: str
     +category: EventCategory
     +description: str
     +details: Dict
@@ -64,40 +25,17 @@ class RiskScore {
     +tier: str
 }
 
-class DatabaseManager {
-    +add_event(event) void
-    +add_alert(event) void
-    +get_events(days, tier) List
+class EventCategory {
+    <<enumeration>>
+    PROCESS
+    NETWORK
+    REGISTRY
+    FILE
+    TASK
+    CORRELATED
 }
 
-ViewLayer .. DashboardPages
-ViewLayer .. DashboardAPIClient
-ControllerLayer .. AgentController
-ControllerLayer .. FastAPIApp
-ControllerLayer .. EventProcessor
-ModelLayer .. SecurityEvent
-ModelLayer .. RiskScore
-ModelLayer .. DatabaseManager
-
-DashboardPages ..> DashboardAPIClient : uses
-DashboardAPIClient ..> FastAPIApp : REST API
-FastAPIApp ..> EventProcessor
-FastAPIApp ..> DatabaseManager
-SecurityEvent *-- RiskScore
-DatabaseManager ..> SecurityEvent : persists
-```
-
----
-
-# Рис. 2.2 — Патерни GoF
-
-```mermaid
-%%{init: {"theme":"base","flowchart":{"nodeSpacing":18,"rankSpacing":18},"class":{"hideEmptyMembersBox":true}}}%%
-classDiagram
-direction LR
-
 class EventFactory {
-    <<FactoryMethod>>
     +create_process_event(data) SecurityEvent
     +create_network_event(data) SecurityEvent
     +create_registry_event(data) SecurityEvent
@@ -105,61 +43,6 @@ class EventFactory {
     +create_task_event(data) SecurityEvent
     +create_correlated_event(source, desc, mitre) SecurityEvent
 }
-
-class AgentConfig {
-    <<Singleton>>
-    -_instance: AgentConfig
-    +server_url: str
-    +api_key: str
-    +agent_id: str
-}
-
-class ServerConfig {
-    <<Singleton>>
-    -_instance: ServerConfig
-    +api_keys: List~str~
-    +db_path: str
-    +alert_threshold_tier: str
-    +reset() void
-}
-
-class RiskEngine {
-    <<StrategyContext>>
-    -_strategies: List~RiskStrategy~
-    +register_strategy(s) void
-    +evaluate(event) RiskScore
-}
-
-class RiskStrategy {
-    <<abstract>>
-    +calculate(event) RiskScore
-    +name: str
-}
-
-class BaselineRiskStrategy { +name = "baseline" }
-class LOLBASRiskStrategy { +name = "lolbas" }
-class ProcessLineageRiskStrategy { +name = "lineage" }
-class NetworkAnomalyRiskStrategy { +name = "network" }
-class TemporalRiskStrategy { +name = "temporal" }
-
-class AlertManager {
-    <<Subject>>
-    -_observers: List~AlertObserver~
-    -_threshold_tier: str
-    +attach(observer) void
-    +detach(observer) void
-    +process_event(event) int
-}
-
-class AlertObserver {
-    <<abstract>>
-    +notify(event) void
-    +observer_name: str
-}
-
-class LogAlertObserver { +observer_name = "Log" }
-class DashboardAlertObserver { +observer_name = "Dashboard" }
-class UptimeKumaObserver { +observer_name = "UptimeKuma" }
 
 class CorrelationEngine {
     -_rules: List~CorrelationRule~
@@ -174,9 +57,60 @@ class CorrelationRule {
     +mitre_technique: str
 }
 
-class SuspiciousParentRule { +mitre_technique = "T1059" }
-class LOLBASRule { +mitre_technique = "T1218" }
-class FirstSeenRule { +mitre_technique = "T1204" }
+class SuspiciousParentRule
+class LOLBASRule
+class FirstSeenRule
+
+class RiskEngine {
+    -_strategies: List~RiskStrategy~
+    +register_strategy(strategy) void
+    +evaluate(event) RiskScore
+}
+
+class RiskStrategy {
+    <<abstract>>
+    +calculate(event) RiskScore
+    +name: str
+}
+
+class BaselineRiskStrategy
+class LOLBASRiskStrategy
+class ProcessLineageRiskStrategy
+class NetworkAnomalyRiskStrategy
+class TemporalRiskStrategy
+
+class AlertManager {
+    -_threshold_tier: str
+    +attach(observer) void
+    +process_event(event) int
+}
+
+class DatabaseManager {
+    +add_event(event) void
+    +add_alert(event) void
+    +get_events(days, tier) List
+    +get_alerts(acknowledged) List
+}
+
+class EventProcessor {
+    -_correlation: CorrelationEngine
+    -_risk: RiskEngine
+    -_alerts: AlertManager
+    -_db: DatabaseManager
+    +process_batch(events, agent_id) ProcessingResult
+}
+
+SecurityEvent *-- RiskScore
+SecurityEvent --> EventCategory
+DatabaseManager ..> SecurityEvent : persists
+EventProcessor ..> SecurityEvent : processes
+
+CorrelationRule <|.. SuspiciousParentRule
+CorrelationRule <|.. LOLBASRule
+CorrelationRule <|.. FirstSeenRule
+CorrelationEngine o-- CorrelationRule
+CorrelationRule ..> EventFactory : creates CORRELATED event
+EventFactory ..> SecurityEvent : creates
 
 RiskStrategy <|.. BaselineRiskStrategy
 RiskStrategy <|.. LOLBASRiskStrategy
@@ -185,17 +119,83 @@ RiskStrategy <|.. NetworkAnomalyRiskStrategy
 RiskStrategy <|.. TemporalRiskStrategy
 RiskEngine o-- RiskStrategy
 
-AlertObserver <|.. LogAlertObserver
-AlertObserver <|.. DashboardAlertObserver
-AlertObserver <|.. UptimeKumaObserver
-AlertManager o-- AlertObserver
-DashboardAlertObserver ..> DatabaseManager : stores
+EventProcessor --> CorrelationEngine
+EventProcessor --> RiskEngine
+EventProcessor --> AlertManager
+EventProcessor --> DatabaseManager
+AlertManager ..> SecurityEvent : alerts by tier
+```
 
-CorrelationRule <|.. SuspiciousParentRule
-CorrelationRule <|.. LOLBASRule
-CorrelationRule <|.. FirstSeenRule
-CorrelationEngine o-- CorrelationRule
-CorrelationRule ..> EventFactory : creates event
+---
 
-EventFactory ..> SecurityEvent : creates
+# Рис. 2.2 — Архітектурний поділ системи за MVC
+
+```mermaid
+%%{init: {"theme":"base","flowchart":{"nodeSpacing":20,"rankSpacing":20},"class":{"hideEmptyMembersBox":true}}}%%
+classDiagram
+direction TB
+
+class ViewLayer { <<MVC:View>> }
+class ControllerLayer { <<MVC:Controller>> }
+class ModelLayer { <<MVC:Model>> }
+
+class DashboardPages {
+    +overview_page()
+    +alerts_page()
+    +events_page()
+    +agents_page()
+    +whitelist_page()
+    +system_page()
+}
+
+class DashboardAPIClient {
+    +get_stats(days) Dict
+    +get_events(days, tier, category) List
+    +get_alerts(limit, acknowledged) List
+    +get_agents() List
+    +get_system_status() Dict
+}
+
+class FastAPIApp {
+    +receive_events() BatchResponse
+    +receive_heartbeat() Dict
+    +get_events() List
+    +get_alerts() List
+    +get_stats() StatsResponse
+    +get_agents() List
+}
+
+class AgentController {
+    +run_scan_cycle() List~SecurityEvent~
+    +send_results(events) bool
+    +send_heartbeat() bool
+}
+
+class EventProcessor {
+    +process_batch(events, agent_id) ProcessingResult
+}
+
+class SecurityEvent
+class RiskScore
+class DatabaseManager
+
+ViewLayer .. DashboardPages
+ViewLayer .. DashboardAPIClient
+
+ControllerLayer .. FastAPIApp
+ControllerLayer .. AgentController
+ControllerLayer .. EventProcessor
+
+ModelLayer .. SecurityEvent
+ModelLayer .. RiskScore
+ModelLayer .. DatabaseManager
+
+DashboardPages ..> DashboardAPIClient : uses
+DashboardAPIClient ..> FastAPIApp : REST API
+AgentController ..> FastAPIApp : events + heartbeat
+FastAPIApp ..> EventProcessor
+FastAPIApp ..> DatabaseManager
+EventProcessor ..> SecurityEvent
+SecurityEvent *-- RiskScore
+DatabaseManager ..> SecurityEvent : stores
 ```
