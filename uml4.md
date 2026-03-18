@@ -1,17 +1,17 @@
-# Рис. 2.1 — UML-діаграма класів предметної області HIDS
+# UML для курсової (розбиття на 4 компактні діаграми)
+
+## 1) Предметна область HIDS: події, аномалії, правила, пріоритети
 
 ```mermaid
-%%{init: {"theme":"base","flowchart":{"nodeSpacing":18,"rankSpacing":18},"class":{"hideEmptyMembersBox":true}}}%%
+%%{init: {"theme":"base","flowchart":{"nodeSpacing":16,"rankSpacing":16},"class":{"hideEmptyMembersBox":true}}}%%
 classDiagram
 direction LR
 
 class SecurityEvent {
   +event_id: str
   +timestamp: datetime
-  +source_sensor: str
   +category: EventCategory
   +description: str
-  +details: Dict
   +mitre_technique: str
   +risk_score: RiskScore
 }
@@ -34,6 +34,91 @@ class EventCategory {
   CORRELATED
 }
 
+class CorrelationEngine {
+  +register_rule(rule) void
+  +correlate(events) List~SecurityEvent~
+}
+
+class CorrelationRule {
+  <<abstract>>
+  +evaluate(events) List~SecurityEvent~
+  +rule_name: str
+  +mitre_technique: str
+}
+
+class SuspiciousParentRule
+class LOLBASRule
+class FirstSeenRule
+
+class EventFactory {
+  <<FactoryMethod>>
+  +create_process_event(data) SecurityEvent
+  +create_correlated_event(source, desc, mitre) SecurityEvent
+}
+
+class EventProcessor {
+  +process_batch(events, agent_id) ProcessingResult
+}
+
+SecurityEvent *-- RiskScore
+SecurityEvent --> EventCategory
+
+CorrelationRule <|.. SuspiciousParentRule
+CorrelationRule <|.. LOLBASRule
+CorrelationRule <|.. FirstSeenRule
+CorrelationEngine o-- CorrelationRule
+CorrelationRule ..> EventFactory : create correlated anomaly
+EventFactory ..> SecurityEvent : create event
+
+EventProcessor --> CorrelationEngine
+EventProcessor ..> SecurityEvent : processes
+```
+
+## 2) Патерни GoF у проєкті
+
+```mermaid
+%%{init: {"theme":"base","flowchart":{"nodeSpacing":16,"rankSpacing":16},"class":{"hideEmptyMembersBox":true}}}%%
+classDiagram
+direction LR
+
+class RiskEngine {
+  <<StrategyContext>>
+  +register_strategy(strategy) void
+  +evaluate(event) RiskScore
+}
+
+class RiskStrategy {
+  <<Strategy>>
+  <<abstract>>
+  +calculate(event) RiskScore
+  +name: str
+}
+
+class BaselineRiskStrategy
+class LOLBASRiskStrategy
+class ProcessLineageRiskStrategy
+class NetworkAnomalyRiskStrategy
+class TemporalRiskStrategy
+
+class AlertManager {
+  <<Subject>>
+  +attach(observer) void
+  +detach(observer) void
+  +process_event(event) int
+}
+
+class AlertObserver {
+  <<Observer>>
+  <<abstract>>
+  +notify(event) void
+  +observer_name: str
+}
+
+class LogAlertObserver
+class DashboardAlertObserver
+class UptimeKumaObserver
+class TelegramAlertObserver
+
 class EventFactory {
   <<FactoryMethod>>
   +create_process_event(data) SecurityEvent
@@ -54,79 +139,6 @@ class ServerConfig {
   +alert_threshold_tier: str
 }
 
-class CorrelationEngine {
-  +register_rule(rule) void
-  +correlate(events) List~SecurityEvent~
-}
-
-class CorrelationRule {
-  <<abstract>>
-  +evaluate(events) List~SecurityEvent~
-  +rule_name: str
-  +mitre_technique: str
-}
-
-class SuspiciousParentRule
-class LOLBASRule
-class FirstSeenRule
-
-class RiskEngine {
-  <<StrategyContext>>
-  +register_strategy(strategy) void
-  +evaluate(event) RiskScore
-}
-
-class RiskStrategy {
-  <<Strategy>>
-  +calculate(event) RiskScore
-  +name: str
-}
-
-class BaselineRiskStrategy
-class LOLBASRiskStrategy
-class ProcessLineageRiskStrategy
-class NetworkAnomalyRiskStrategy
-class TemporalRiskStrategy
-
-class AlertManager {
-  <<Subject>>
-  +attach(observer) void
-  +detach(observer) void
-  +process_event(event) int
-}
-
-class AlertObserver {
-  <<Observer>>
-  +notify(event) void
-}
-
-class LogAlertObserver
-class DashboardAlertObserver
-class UptimeKumaObserver
-class TelegramAlertObserver
-
-class DatabaseManager {
-  +add_event(event) void
-  +add_alert(event) void
-  +get_events(days, tier) List
-  +get_alerts(acknowledged) List
-}
-
-class EventProcessor {
-  +process_batch(events, agent_id) ProcessingResult
-}
-
-SecurityEvent *-- RiskScore
-SecurityEvent --> EventCategory
-EventFactory ..> SecurityEvent : creates
-DatabaseManager ..> SecurityEvent : persists
-
-CorrelationRule <|.. SuspiciousParentRule
-CorrelationRule <|.. LOLBASRule
-CorrelationRule <|.. FirstSeenRule
-CorrelationEngine o-- CorrelationRule
-CorrelationRule ..> EventFactory
-
 RiskStrategy <|.. BaselineRiskStrategy
 RiskStrategy <|.. LOLBASRiskStrategy
 RiskStrategy <|.. ProcessLineageRiskStrategy
@@ -139,22 +151,12 @@ AlertObserver <|.. DashboardAlertObserver
 AlertObserver <|.. UptimeKumaObserver
 AlertObserver <|.. TelegramAlertObserver
 AlertManager o-- AlertObserver
-
-EventProcessor --> CorrelationEngine
-EventProcessor --> RiskEngine
-EventProcessor --> AlertManager
-EventProcessor --> DatabaseManager
-DashboardAlertObserver ..> DatabaseManager : stores
-AgentConfig ..> EventFactory : agent-side config
-ServerConfig ..> AlertManager : threshold config
 ```
 
----
-
-# Рис. 2.2 — Архітектурний поділ системи за MVC
+## 3) Архітектурний поділ за MVC
 
 ```mermaid
-%%{init: {"theme":"base","flowchart":{"nodeSpacing":18,"rankSpacing":18},"class":{"hideEmptyMembersBox":true}}}%%
+%%{init: {"theme":"base","flowchart":{"nodeSpacing":16,"rankSpacing":16},"class":{"hideEmptyMembersBox":true}}}%%
 classDiagram
 direction TB
 
@@ -163,6 +165,7 @@ class ControllerLayer { <<MVC Layer>> }
 class ModelLayer { <<MVC Layer>> }
 
 class DashboardPages {
+  <<module>>
   +overview_page()
   +alerts_page()
   +events_page()
@@ -172,30 +175,31 @@ class DashboardPages {
 }
 
 class DashboardAPIClient {
-  +get_stats(days) Dict
-  +get_events(days, tier, category) List
-  +get_alerts(limit, acknowledged) List
-  +get_agents() List
-  +get_system_status() Dict
+  <<module>>
+  +get_events(...)
+  +get_alerts(...)
+  +get_stats(...)
+  +get_agents()
+  +get_system_status()
 }
 
 class FastAPIApp {
-  +receive_events() BatchResponse
-  +receive_heartbeat() Dict
-  +get_events() List
-  +get_alerts() List
-  +get_stats() StatsResponse
-  +get_agents() List
+  +receive_events()
+  +receive_heartbeat()
+  +get_events()
+  +get_alerts()
+  +get_stats()
+  +get_agents()
 }
 
 class AgentController {
-  +run_scan_cycle() List~SecurityEvent~
-  +send_results(events) bool
-  +send_heartbeat() bool
+  +run_scan_cycle()
+  +send_results(events)
+  +send_heartbeat()
 }
 
 class EventProcessor {
-  +process_batch(events, agent_id) ProcessingResult
+  +process_batch(events, agent_id)
 }
 
 class SecurityEvent
@@ -222,7 +226,48 @@ DashboardAPIClient ..> FastAPIApp : REST API
 AgentController ..> FastAPIApp : events + heartbeat
 FastAPIApp ..> EventProcessor
 FastAPIApp ..> DatabaseManager
-EventProcessor ..> SecurityEvent
 SecurityEvent *-- RiskScore
-DatabaseManager ..> SecurityEvent : stores
+```
+
+## 4) Міні-діаграма пайплайна обробки
+
+```mermaid
+%%{init: {"theme":"base","flowchart":{"nodeSpacing":14,"rankSpacing":14},"class":{"hideEmptyMembersBox":true}}}%%
+classDiagram
+direction LR
+
+class AgentController {
+  +run_scan_cycle()
+  +send_results(events)
+}
+
+class EventFactory {
+  <<FactoryMethod>>
+  +create_*_event(data)
+}
+
+class FastAPIApp {
+  +receive_events()
+}
+
+class EventProcessor {
+  +process_batch(events, agent_id)
+}
+
+class CorrelationEngine
+class RiskEngine { <<StrategyContext>> }
+class AlertManager { <<Subject>> }
+class DatabaseManager
+class SecurityEvent
+class RiskScore
+
+AgentController ..> EventFactory : builds events
+EventFactory ..> SecurityEvent : create
+AgentController ..> FastAPIApp : POST /api/events
+FastAPIApp ..> EventProcessor
+EventProcessor --> CorrelationEngine
+EventProcessor --> RiskEngine
+EventProcessor --> AlertManager
+EventProcessor --> DatabaseManager
+SecurityEvent *-- RiskScore
 ```
