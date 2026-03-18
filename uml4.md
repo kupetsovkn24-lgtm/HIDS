@@ -1,3 +1,6 @@
+# Рис. 2.1 — UML-діаграма класів предметної області HIDS
+
+```mermaid
 classDiagram
 direction LR
 
@@ -22,7 +25,7 @@ class RiskScore {
 }
 
 SecurityEvent *-- RiskScore
-EventFactory ..> SecurityEvent : <<creates>>
+EventFactory ..> SecurityEvent : creates
 
 class CorrelationEngine {
     +register_rule(rule)
@@ -31,7 +34,7 @@ class CorrelationEngine {
 
 class CorrelationRule {
     <<abstract>>
-    +evaluate(events)*
+    +evaluate(events)
 }
 CorrelationRule <|.. SuspiciousParentRule
 CorrelationRule <|.. LOLBASRule
@@ -43,8 +46,9 @@ class RiskEngine {
 }
 
 class RiskStrategy {
+    <<Strategy>>
     <<abstract>>
-    +calculate(event)* RiskScore
+    +calculate(event) RiskScore
 }
 RiskStrategy <|.. BaselineRiskStrategy
 RiskStrategy <|.. LOLBASRiskStrategy
@@ -53,12 +57,13 @@ RiskStrategy <|.. ProcessLineageRiskStrategy
 class AlertManager {
     <<Subject>>
     +attach(observer)
-    +notify(event)
+    +process_event(event)
 }
 
 class AlertObserver {
+    <<Observer>>
     <<abstract>>
-    +notify(event)*
+    +notify(event)
 }
 AlertObserver <|.. TelegramAlertObserver
 AlertObserver <|.. DashboardAlertObserver
@@ -73,18 +78,24 @@ EventProcessor --> AlertManager
 CorrelationEngine o-- CorrelationRule
 RiskEngine o-- RiskStrategy
 AlertManager o-- AlertObserver
-CorrelationRule ..> EventFactory : <<uses>>
+CorrelationRule ..> EventFactory : uses
+```
 
+---
+
+# Рис. 2.2 — Архітектурний поділ системи за MVC
+
+```mermaid
 classDiagram
 direction TB
 
-class ViewLayer { <<MVC View>> }
-class ControllerLayer { <<MVC Controller>> }
-class ModelLayer { <<MVC Model>> }
+class ViewLayer { <<MVCView>> }
+class ControllerLayer { <<MVCController>> }
+class ModelLayer { <<MVCModel>> }
 
 class DashboardPages { <<module>> }
 class DashboardAPIClient { <<module>> }
-class FastAPIApp { <<API>> }
+class FastAPIApp { <<api>> }
 class AgentController { <<service>> }
 class EventProcessor { <<logic>> }
 
@@ -105,8 +116,9 @@ ModelLayer .. DatabaseManager
 ModelLayer .. ServerConfig
 ModelLayer .. AgentConfig
 
-DashboardPages ..> DashboardAPIClient : <<uses>>
-DashboardAPIClient ..> FastAPIApp : <<REST API>>
-AgentController ..> FastAPIApp : <<HTTP POST>>
-FastAPIApp ..> EventProcessor : <<delegates>>
-FastAPIApp ..> DatabaseManager : <<queries>>
+DashboardPages ..> DashboardAPIClient : uses
+DashboardAPIClient ..> FastAPIApp : REST API
+AgentController ..> FastAPIApp : HTTP POST
+FastAPIApp ..> EventProcessor : delegates
+FastAPIApp ..> DatabaseManager : queries
+```
