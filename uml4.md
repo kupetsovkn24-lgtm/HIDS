@@ -2,8 +2,6 @@
 
 ---
 
-## Рис. 2.1 — Архітектурна декомпозиція системи за патерном MVC
-
 ```mermaid
 classDiagram
 direction TB
@@ -83,15 +81,16 @@ FastAPIApp ..> DatabaseManager
 SecurityEvent *-- RiskScore
 ```
 
-*Рис. 2.1. Архітектурна декомпозиція системи за патерном MVC. Джерело: авторські напрацювання.*
+*Рис. 2.1. Архітектурна декомпозиція системи за патерном MVC.*
+*Джерело: авторські напрацювання.*
 
 ---
-
-## Рис. 2.2 — UML-діаграма класів підсистеми аналізу та патернів GoF
 
 ```mermaid
 classDiagram
 direction LR
+
+%% ── Моделі даних ──────────────────────────────────
 
 class SecurityEvent {
   +event_id : str
@@ -123,13 +122,46 @@ class EventCategory {
 SecurityEvent *-- RiskScore
 SecurityEvent --> EventCategory
 
+%% ── Factory Method ────────────────────────────────
+
 class EventFactory {
   <<FactoryMethod>>
   +create_process_event(data) SecurityEvent
+  +create_network_event(data) SecurityEvent
   +create_correlated_event(src, desc, mitre) SecurityEvent
 }
 
 EventFactory ..> SecurityEvent : creates
+
+%% ── Сенсори (OCP: нові сенсори без зміни контролера) ──
+
+class BaseSensor {
+  <<abstract>>
+  +scan()* List~Dict~
+  +sensor_name : str
+}
+
+class ProcessSensor
+class NetworkSensor
+class RegistrySensor
+class FileSensor
+class TaskSensor
+
+BaseSensor <|.. ProcessSensor
+BaseSensor <|.. NetworkSensor
+BaseSensor <|.. RegistrySensor
+BaseSensor <|.. FileSensor
+BaseSensor <|.. TaskSensor
+
+AgentController o-- BaseSensor
+AgentController ..> EventFactory : creates events
+
+class AgentController {
+  +run_scan_cycle() List~SecurityEvent~
+  +send_results(events) bool
+}
+
+%% ── Кореляційне ядро ──────────────────────────────
 
 class CorrelationEngine {
   +register_rule(rule) void
@@ -152,6 +184,8 @@ CorrelationRule <|.. LOLBASRule
 CorrelationRule <|.. FirstSeenRule
 CorrelationEngine o-- CorrelationRule
 CorrelationRule ..> EventFactory : creates
+
+%% ── Strategy: оцінка ризику ───────────────────────
 
 class RiskEngine {
   <<StrategyContext>>
@@ -179,6 +213,8 @@ RiskStrategy <|.. NetworkAnomalyRiskStrategy
 RiskStrategy <|.. TemporalRiskStrategy
 RiskEngine o-- RiskStrategy
 
+%% ── Observer: сповіщення ──────────────────────────
+
 class AlertManager {
   <<Subject>>
   +attach(observer) void
@@ -204,6 +240,8 @@ AlertObserver <|.. UptimeKumaObserver
 AlertObserver <|.. TelegramAlertObserver
 AlertManager o-- AlertObserver
 
+%% ── Оркестратор + сховище ─────────────────────────
+
 class EventProcessor {
   +process_batch(events, agent_id)
 }
@@ -211,6 +249,7 @@ class EventProcessor {
 EventProcessor --> CorrelationEngine
 EventProcessor --> RiskEngine
 EventProcessor --> AlertManager
+EventProcessor --> DatabaseManager
 
 class DatabaseManager {
   +add_event(event) void
@@ -219,8 +258,9 @@ class DatabaseManager {
   +get_alerts(acknowledged) List
 }
 
-EventProcessor --> DatabaseManager
 DashboardAlertObserver ..> DatabaseManager : stores
+
+%% ── Singleton: конфігурація ───────────────────────
 
 class AgentConfig {
   <<Singleton>>
@@ -240,4 +280,5 @@ AgentConfig ..> EventFactory : config
 ServerConfig ..> AlertManager : threshold
 ```
 
-*Рис. 2.2. UML-діаграма класів підсистеми аналізу та патернів GoF. Джерело: авторські напрацювання.*
+*Рис. 2.2. UML-діаграма класів підсистеми аналізу та патернів GoF.*
+*Джерело: авторські напрацювання.*
