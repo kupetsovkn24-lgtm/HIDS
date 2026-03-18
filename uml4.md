@@ -1,8 +1,9 @@
 # Рис. 2.1 — MVC-архітектура системи HIDS
 
 ```mermaid
+%%{init: {"theme":"base","flowchart":{"nodeSpacing":22,"rankSpacing":22},"class":{"hideEmptyMembersBox":true}}}%%
 classDiagram
-direction TB
+direction LR
 
 class ViewLayer { <<MVCLayer>> }
 class ControllerLayer { <<MVCLayer>> }
@@ -10,17 +11,15 @@ class ModelLayer { <<MVCLayer>> }
 
 class DashboardPages {
     +overview_page()
-    +events_page()
     +alerts_page()
+    +events_page()
     +agents_page()
-    +whitelist_page()
 }
 
 class DashboardAPIClient {
     +get_stats(days) Dict
-    +get_events(days, tier, category) List
+    +get_events(days, tier) List
     +get_alerts(limit, acknowledged) List
-    +get_agents() List
 }
 
 class AgentController {
@@ -35,7 +34,6 @@ class AgentController {
 class FastAPIApp {
     +receive_events() BatchResponse
     +get_events() List
-    +get_stats() StatsResponse
     +get_alerts() List
 }
 
@@ -69,9 +67,7 @@ class RiskScore {
 class DatabaseManager {
     +add_event(event) void
     +add_alert(event) void
-    +get_events(days, tier, category) List
-    +get_alerts(acknowledged) List
-    +get_stats(days) Dict
+    +get_events(days, tier) List
 }
 
 ViewLayer .. DashboardPages
@@ -96,6 +92,7 @@ DatabaseManager ..> SecurityEvent : persists
 # Рис. 2.2 — Патерни GoF
 
 ```mermaid
+%%{init: {"theme":"base","flowchart":{"nodeSpacing":18,"rankSpacing":18},"class":{"hideEmptyMembersBox":true}}}%%
 classDiagram
 direction LR
 
@@ -201,9 +198,4 @@ CorrelationEngine o-- CorrelationRule
 CorrelationRule ..> EventFactory : creates event
 
 EventFactory ..> SecurityEvent : creates
-
-note for RiskEngine "GoF Strategy: RiskEngine — контекст,\nRiskStrategy — змінний алгоритм."
-note for AlertManager "GoF Observer: Subject сповіщає\nвсіх attached observers."
-note for EventFactory "GoF Factory Method:\nтипізовані create_*() методи."
-note for ServerConfig "GoF Singleton:\none instance per process."
 ```
