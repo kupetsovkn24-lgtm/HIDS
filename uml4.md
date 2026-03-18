@@ -1,160 +1,8 @@
-# UML-діаграми для курсової роботи (4 компактні діаграми)
-
-## 1. Діаграма класів предметної області
-
-> Події безпеки, оцінка ризику, кореляційні правила, пріоритети.
-
-```mermaid
-classDiagram
-direction LR
-
-class SecurityEvent {
-  +event_id : str
-  +timestamp : datetime
-  +category : EventCategory
-  +description : str
-  +mitre_technique : str
-  +risk_score : RiskScore
-}
-
-class RiskScore {
-  +impact : float
-  +confidence : float
-  +urgency : float
-  +composite : float
-  +tier : str
-}
-
-class EventCategory {
-  <<enumeration>>
-  PROCESS
-  NETWORK
-  REGISTRY
-  FILE
-  TASK
-  CORRELATED
-}
-
-class CorrelationEngine {
-  +register_rule(rule) void
-  +correlate(events) List~SecurityEvent~
-}
-
-class CorrelationRule {
-  <<abstract>>
-  +evaluate(events)* List~SecurityEvent~
-  +rule_name : str
-  +mitre_technique : str
-}
-
-class SuspiciousParentRule
-class LOLBASRule
-class FirstSeenRule
-
-class EventFactory {
-  <<FactoryMethod>>
-  +create_process_event(data) SecurityEvent
-  +create_correlated_event(src, desc, mitre) SecurityEvent
-}
-
-SecurityEvent *-- RiskScore
-SecurityEvent --> EventCategory
-
-CorrelationRule <|.. SuspiciousParentRule
-CorrelationRule <|.. LOLBASRule
-CorrelationRule <|.. FirstSeenRule
-CorrelationEngine o-- CorrelationRule
-CorrelationRule ..> EventFactory : створює кореляцію
-EventFactory ..> SecurityEvent : створює подію
-```
+# UML-діаграми класів для курсової роботи
 
 ---
 
-## 2. Діаграма патернів GoF
-
-> Strategy — оцінка ризику; Observer — сповіщення; Factory Method — створення подій; Singleton — конфігурація.
-
-```mermaid
-classDiagram
-direction LR
-
-class RiskEngine {
-  <<StrategyContext>>
-  +register_strategy(s) void
-  +evaluate(event) RiskScore
-}
-
-class RiskStrategy {
-  <<Strategy>>
-  <<abstract>>
-  +calculate(event)* RiskScore
-  +name : str
-}
-
-class BaselineRiskStrategy
-class LOLBASRiskStrategy
-class ProcessLineageRiskStrategy
-class NetworkAnomalyRiskStrategy
-class TemporalRiskStrategy
-
-RiskStrategy <|.. BaselineRiskStrategy
-RiskStrategy <|.. LOLBASRiskStrategy
-RiskStrategy <|.. ProcessLineageRiskStrategy
-RiskStrategy <|.. NetworkAnomalyRiskStrategy
-RiskStrategy <|.. TemporalRiskStrategy
-RiskEngine o-- RiskStrategy
-
-class AlertManager {
-  <<Subject>>
-  +attach(observer) void
-  +detach(observer) void
-  +process_event(event) int
-}
-
-class AlertObserver {
-  <<Observer>>
-  <<abstract>>
-  +notify(event)* void
-  +observer_name : str
-}
-
-class LogAlertObserver
-class DashboardAlertObserver
-class UptimeKumaObserver
-class TelegramAlertObserver
-
-AlertObserver <|.. LogAlertObserver
-AlertObserver <|.. DashboardAlertObserver
-AlertObserver <|.. UptimeKumaObserver
-AlertObserver <|.. TelegramAlertObserver
-AlertManager o-- AlertObserver
-
-class EventFactory {
-  <<FactoryMethod>>
-  +create_process_event(data) SecurityEvent
-  +create_correlated_event(src, desc, mitre) SecurityEvent
-}
-
-class AgentConfig {
-  <<Singleton>>
-  +server_url : str
-  +api_key : str
-  +agent_id : str
-}
-
-class ServerConfig {
-  <<Singleton>>
-  +api_keys : List~str~
-  +db_path : str
-  +alert_threshold_tier : str
-}
-```
-
----
-
-## 3. Архітектурний поділ за MVC
-
-> View — Dashboard (Streamlit); Controller — FastAPI, AgentController, EventProcessor; Model — доменні дані та база.
+## Рис. 2.1 — Архітектурна декомпозиція системи за патерном MVC
 
 ```mermaid
 classDiagram
@@ -229,55 +77,167 @@ ModelLayer .. ServerConfig
 
 DashboardPages ..> DashboardAPIClient : uses
 DashboardAPIClient ..> FastAPIApp : REST API
-AgentController ..> FastAPIApp : events + heartbeat
+AgentController ..> FastAPIApp : HTTP
 FastAPIApp ..> EventProcessor
 FastAPIApp ..> DatabaseManager
 SecurityEvent *-- RiskScore
 ```
 
+*Рис. 2.1. Архітектурна декомпозиція системи за патерном MVC. Джерело: авторські напрацювання.*
+
 ---
 
-## 4. Пайплайн обробки подій
-
-> Шлях події: Agent → Factory → Server → CorrelationEngine → RiskEngine → AlertManager → Database.
+## Рис. 2.2 — UML-діаграма класів підсистеми аналізу та патернів GoF
 
 ```mermaid
 classDiagram
 direction LR
 
-class AgentController {
-  +run_scan_cycle()
-  +send_results(events)
+class SecurityEvent {
+  +event_id : str
+  +timestamp : datetime
+  +category : EventCategory
+  +description : str
+  +mitre_technique : str
+  +risk_score : RiskScore
 }
+
+class RiskScore {
+  +impact : float
+  +confidence : float
+  +urgency : float
+  +composite : float
+  +tier : str
+}
+
+class EventCategory {
+  <<enumeration>>
+  PROCESS
+  NETWORK
+  REGISTRY
+  FILE
+  TASK
+  CORRELATED
+}
+
+SecurityEvent *-- RiskScore
+SecurityEvent --> EventCategory
 
 class EventFactory {
   <<FactoryMethod>>
-  +create_*_event(data)
+  +create_process_event(data) SecurityEvent
+  +create_correlated_event(src, desc, mitre) SecurityEvent
 }
 
-class FastAPIApp {
-  +receive_events()
+EventFactory ..> SecurityEvent : creates
+
+class CorrelationEngine {
+  +register_rule(rule) void
+  +correlate(events) List~SecurityEvent~
 }
+
+class CorrelationRule {
+  <<abstract>>
+  +evaluate(events)* List~SecurityEvent~
+  +rule_name : str
+  +mitre_technique : str
+}
+
+class SuspiciousParentRule
+class LOLBASRule
+class FirstSeenRule
+
+CorrelationRule <|.. SuspiciousParentRule
+CorrelationRule <|.. LOLBASRule
+CorrelationRule <|.. FirstSeenRule
+CorrelationEngine o-- CorrelationRule
+CorrelationRule ..> EventFactory : creates
+
+class RiskEngine {
+  <<StrategyContext>>
+  +register_strategy(s) void
+  +evaluate(event) RiskScore
+}
+
+class RiskStrategy {
+  <<Strategy>>
+  <<abstract>>
+  +calculate(event)* RiskScore
+  +name : str
+}
+
+class BaselineRiskStrategy
+class LOLBASRiskStrategy
+class ProcessLineageRiskStrategy
+class NetworkAnomalyRiskStrategy
+class TemporalRiskStrategy
+
+RiskStrategy <|.. BaselineRiskStrategy
+RiskStrategy <|.. LOLBASRiskStrategy
+RiskStrategy <|.. ProcessLineageRiskStrategy
+RiskStrategy <|.. NetworkAnomalyRiskStrategy
+RiskStrategy <|.. TemporalRiskStrategy
+RiskEngine o-- RiskStrategy
+
+class AlertManager {
+  <<Subject>>
+  +attach(observer) void
+  +detach(observer) void
+  +process_event(event) int
+}
+
+class AlertObserver {
+  <<Observer>>
+  <<abstract>>
+  +notify(event)* void
+  +observer_name : str
+}
+
+class LogAlertObserver
+class DashboardAlertObserver
+class UptimeKumaObserver
+class TelegramAlertObserver
+
+AlertObserver <|.. LogAlertObserver
+AlertObserver <|.. DashboardAlertObserver
+AlertObserver <|.. UptimeKumaObserver
+AlertObserver <|.. TelegramAlertObserver
+AlertManager o-- AlertObserver
 
 class EventProcessor {
   +process_batch(events, agent_id)
 }
 
-class CorrelationEngine
-class RiskEngine { <<StrategyContext>> }
-class AlertManager { <<Subject>> }
-class DatabaseManager
-
-AgentController ..> EventFactory : створює події
-EventFactory ..> SecurityEvent : create
-AgentController ..> FastAPIApp : POST /api/events
-FastAPIApp ..> EventProcessor
 EventProcessor --> CorrelationEngine
 EventProcessor --> RiskEngine
 EventProcessor --> AlertManager
-EventProcessor --> DatabaseManager
 
-class SecurityEvent
-class RiskScore
-SecurityEvent *-- RiskScore
+class DatabaseManager {
+  +add_event(event) void
+  +add_alert(event) void
+  +get_events(days, tier) List
+  +get_alerts(acknowledged) List
+}
+
+EventProcessor --> DatabaseManager
+DashboardAlertObserver ..> DatabaseManager : stores
+
+class AgentConfig {
+  <<Singleton>>
+  +server_url : str
+  +api_key : str
+  +agent_id : str
+}
+
+class ServerConfig {
+  <<Singleton>>
+  +api_keys : List~str~
+  +db_path : str
+  +alert_threshold_tier : str
+}
+
+AgentConfig ..> EventFactory : config
+ServerConfig ..> AlertManager : threshold
 ```
+
+*Рис. 2.2. UML-діаграма класів підсистеми аналізу та патернів GoF. Джерело: авторські напрацювання.*
