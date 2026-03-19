@@ -1,31 +1,34 @@
 # Рис. 2.1 — UML-діаграма класів предметної області HIDS
 
 ```mermaid
+%%{init: {"theme":"base","flowchart":{"nodeSpacing":14,"rankSpacing":14},"class":{"hideEmptyMembersBox":true}}}%%
 classDiagram
-direction LR
-
-class EventFactory {
-    <<FactoryMethod>>
-    +create_process_event(data) SecurityEvent
-    +create_correlated_event(src, desc, mitre) SecurityEvent
-}
+direction TB
 
 class SecurityEvent {
-    +event_id : str
-    +category : EventCategory
-    +risk_score : RiskScore
+    +event_id: str
+    +category: EventCategory
+    +description: str
+    +risk_score: RiskScore
 }
 
 class RiskScore {
-    +impact : float
-    +confidence : float
-    +urgency : float
-    +composite : float
-    +tier : str
+    +impact: float
+    +confidence: float
+    +urgency: float
+    +composite: float
+    +tier: str
 }
 
-SecurityEvent *-- RiskScore
-EventFactory ..> SecurityEvent : creates
+class EventCategory {
+    <<enumeration>>
+    PROCESS
+    NETWORK
+    REGISTRY
+    FILE
+    TASK
+    CORRELATED
+}
 
 class CorrelationEngine {
     +register_rule(rule)
@@ -36,12 +39,13 @@ class CorrelationRule {
     <<abstract>>
     +evaluate(events)
 }
-CorrelationRule <|.. SuspiciousParentRule
-CorrelationRule <|.. LOLBASRule
+class SuspiciousParentRule
+class LOLBASRule
+class FirstSeenRule
 
 class RiskEngine {
     <<StrategyContext>>
-    -strategies : List~RiskStrategy~
+    -strategies: List~RiskStrategy~
     +evaluate(event) RiskScore
 }
 
@@ -50,35 +54,29 @@ class RiskStrategy {
     <<abstract>>
     +calculate(event) RiskScore
 }
-RiskStrategy <|.. BaselineRiskStrategy
-RiskStrategy <|.. LOLBASRiskStrategy
-RiskStrategy <|.. ProcessLineageRiskStrategy
-
-class AlertManager {
-    <<Subject>>
-    +attach(observer)
-    +process_event(event)
-}
-
-class AlertObserver {
-    <<Observer>>
-    <<abstract>>
-    +notify(event)
-}
-AlertObserver <|.. TelegramAlertObserver
-AlertObserver <|.. DashboardAlertObserver
+class BaselineRiskStrategy
+class LOLBASRiskStrategy
+class ProcessLineageRiskStrategy
 
 class EventProcessor {
     +process_batch(events)
 }
 
+SecurityEvent *-- RiskScore
+SecurityEvent --> EventCategory
+
+CorrelationRule <|.. SuspiciousParentRule
+CorrelationRule <|.. LOLBASRule
+CorrelationRule <|.. FirstSeenRule
+CorrelationEngine o-- CorrelationRule
+
+RiskStrategy <|.. BaselineRiskStrategy
+RiskStrategy <|.. LOLBASRiskStrategy
+RiskStrategy <|.. ProcessLineageRiskStrategy
+RiskEngine o-- RiskStrategy
+
 EventProcessor --> CorrelationEngine
 EventProcessor --> RiskEngine
-EventProcessor --> AlertManager
-CorrelationEngine o-- CorrelationRule
-RiskEngine o-- RiskStrategy
-AlertManager o-- AlertObserver
-CorrelationRule ..> EventFactory : uses
 ```
 
 ---
